@@ -1,0 +1,314 @@
+<!doctype html>
+<html lang="id">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Pembuat Tanda Tangan</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,700&family=Figtree:wght@400;500;600&family=Great+Vibes&family=Mrs+Saint+Delafield&family=Herr+Von+Muellerhoff&family=Allura&display=swap">
+<style>
+/* Layout: one centered work column — signing pad on top, controls below, result preview at the end */
+:root{
+  --bg:#eef1f5; --surface:#ffffff; --fg:#17202e; --muted:#5d6878; --line:#d5dbe4;
+  --accent:#1f3fae; --accent-fg:#ffffff; --pad:#ffffff; --guide:#b8c2d1; --ok:#1d7a4c;
+  --display:"Bricolage Grotesque", "Segoe UI", system-ui, sans-serif;
+  --body:"Figtree", "Segoe UI", system-ui, sans-serif;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#10141b; --surface:#181e28; --fg:#e7ebf2; --muted:#98a3b4; --line:#2b3442;
+  --accent:#7d97ff; --accent-fg:#0e1530; --pad:#ffffff; --guide:#b8c2d1; --ok:#58c58d; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#10141b; --surface:#181e28; --fg:#e7ebf2; --muted:#98a3b4; --line:#2b3442;
+  --accent:#7d97ff; --accent-fg:#0e1530; --pad:#ffffff; --guide:#b8c2d1; --ok:#58c58d; color-scheme:dark}
+
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--fg);font-family:var(--body);font-size:15px;line-height:1.5;
+  padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-block:28px 48px}
+.wrap{max-width:760px;margin:0 auto;display:flex;flex-direction:column;gap:20px}
+header h1{font-family:var(--display);font-weight:700;font-size:clamp(1.6rem,4vw,2.1rem);margin:0;letter-spacing:-.01em;text-wrap:balance}
+header p{margin:6px 0 0;color:var(--muted);max-width:60ch}
+
+.tabs{display:inline-flex;background:var(--surface);border:1px solid var(--line);border-radius:999px;padding:4px;gap:4px;align-self:flex-start}
+.tabs button{border:0;background:transparent;color:var(--muted);font:600 14px var(--body);padding:8px 18px;border-radius:999px;cursor:pointer}
+.tabs button[aria-selected="true"]{background:var(--accent);color:var(--accent-fg)}
+
+.pad-wrap{position:relative;background:var(--pad);border:1px solid var(--line);border-radius:14px;overflow:hidden;box-shadow:0 1px 0 rgba(0,0,0,.03),0 8px 24px -16px rgba(20,30,60,.35)}
+#pad{display:block;width:100%;height:clamp(200px,42vw,300px);touch-action:none;cursor:crosshair}
+.guide{position:absolute;left:6%;right:6%;bottom:28%;border-bottom:1.5px dashed var(--guide);pointer-events:none}
+.guide::before{content:"×";position:absolute;left:-2px;bottom:4px;font:500 22px var(--body);color:var(--guide)}
+.hint{position:absolute;left:0;right:0;top:42%;text-align:center;color:#9aa5b5;font-size:14px;pointer-events:none;transition:opacity .2s}
+#typed-area{padding:18px;display:flex;flex-direction:column;gap:14px}
+#typed-area[hidden]{display:none!important}
+.typed-input{width:100%;font:500 16px var(--body);padding:12px 14px;border:1px solid var(--line);border-radius:10px;background:var(--surface);color:var(--fg)}
+.font-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:10px}
+.font-opt{border:1.5px solid var(--line);background:#fff;color:#14203a;border-radius:10px;padding:10px 12px;cursor:pointer;font-size:30px;line-height:1.3;min-height:64px;overflow:hidden;white-space:nowrap;text-overflow:ellipsis;text-align:left}
+.font-opt[aria-pressed="true"]{border-color:var(--accent);box-shadow:0 0 0 2px var(--accent)}
+
+.controls{display:flex;flex-wrap:wrap;gap:16px 24px;align-items:center;background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:14px 16px}
+.group{display:flex;align-items:center;gap:10px}
+.label{font-size:12px;font-weight:600;text-transform:uppercase;letter-spacing:.08em;color:var(--muted)}
+.swatch{width:28px;height:28px;border-radius:50%;border:2px solid var(--surface);box-shadow:0 0 0 1px var(--line);cursor:pointer;padding:0}
+.swatch[aria-pressed="true"]{box-shadow:0 0 0 2px var(--accent)}
+input[type=range]{accent-color:var(--accent);width:110px}
+.check{display:flex;align-items:center;gap:8px;font-size:14px;cursor:pointer}
+.check input{accent-color:var(--accent);width:16px;height:16px}
+.spacer{flex:1}
+.btn{font:600 14px var(--body);padding:10px 16px;border-radius:10px;border:1px solid var(--line);background:var(--surface);color:var(--fg);cursor:pointer}
+.btn:hover{border-color:var(--muted)}
+.btn.primary{background:var(--accent);color:var(--accent-fg);border-color:var(--accent);font-size:15px;padding:12px 20px}
+.btn:disabled{opacity:.45;cursor:not-allowed}
+button:focus-visible,input:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+
+.result{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:16px;align-items:center;background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:16px}
+@media (max-width:560px){.result{grid-template-columns:1fr}}
+.preview{background:repeating-conic-gradient(var(--line) 0 25%,transparent 0 50%) 0 0/14px 14px;border-radius:10px;padding:10px;display:flex;justify-content:center;min-height:90px;align-items:center}
+.preview img{max-height:120px;border:1px solid var(--line);background:#fff}
+.preview .empty{color:var(--muted);font-size:14px;background:var(--surface);padding:6px 10px;border-radius:6px}
+.meta{font-size:13px;color:var(--muted);font-variant-numeric:tabular-nums}
+.status{font-size:14px;min-height:1.4em;color:var(--muted)}
+.status.ok{color:var(--ok)}
+.actions{display:flex;flex-direction:column;gap:8px;align-items:stretch}
+.tips{color:var(--muted);font-size:13.5px;margin:0;max-width:65ch}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>Pembuat Tanda Tangan</h1>
+    <p>Gambar tanda tangan dengan jari, stylus, atau mouse, atau ketik nama Anda. Hasilnya disimpan sebagai JPG beresolusi tinggi dengan latar putih.</p>
+  </header>
+
+  <div class="tabs" role="tablist">
+    <button role="tab" id="tab-draw" aria-selected="true">Gambar</button>
+    <button role="tab" id="tab-type" aria-selected="false">Ketik</button>
+  </div>
+
+  <div class="pad-wrap" id="draw-area">
+    <canvas id="pad" aria-label="Area tanda tangan"></canvas>
+    <div class="guide"></div>
+    <div class="hint" id="hint">Tanda tangan di atas garis</div>
+  </div>
+
+  <div class="pad-wrap" id="typed-area" hidden>
+    <input class="typed-input" id="typed-name" type="text" placeholder="Ketik nama Anda" value="Diva Eka Putra" maxlength="40">
+    <div class="font-grid" id="font-grid"></div>
+  </div>
+
+  <div class="controls">
+    <div class="group">
+      <span class="label">Tinta</span>
+      <button class="swatch" data-color="#0b1a3a" style="background:#0b1a3a" aria-pressed="true" aria-label="Hitam"></button>
+      <button class="swatch" data-color="#1a3fbf" style="background:#1a3fbf" aria-pressed="false" aria-label="Biru"></button>
+      <button class="swatch" data-color="#0d5c3a" style="background:#0d5c3a" aria-pressed="false" aria-label="Hijau tua"></button>
+    </div>
+    <div class="group" id="thick-group">
+      <label class="label" for="thick">Tebal</label>
+      <input type="range" id="thick" min="1" max="8" step="0.5" value="3">
+    </div>
+    <label class="check"><input type="checkbox" id="trim" checked> Potong tepi kosong</label>
+    <div class="spacer"></div>
+    <button class="btn" id="undo">Urungkan</button>
+    <button class="btn" id="clear">Hapus</button>
+  </div>
+
+  <div class="result">
+    <div>
+      <div class="preview" id="preview"><span class="empty">Pratinjau muncul di sini</span></div>
+      <div class="meta" id="meta"></div>
+    </div>
+    <div class="actions">
+      <button class="btn primary" id="save" disabled>Unduh JPG</button>
+      <div class="status" id="status" role="status"></div>
+    </div>
+  </div>
+
+  <p class="tips">Tips: tanda tangan yang tegas dan agak besar terlihat lebih rapi saat ditempel di dokumen. JPG tidak mendukung latar transparan, jadi latarnya putih; cocok untuk dokumen berlatar putih.</p>
+</div>
+
+<script>
+(() => {
+  const pad = document.getElementById('pad'), ctx = pad.getContext('2d');
+  const hint = document.getElementById('hint');
+  const thick = document.getElementById('thick'), trimBox = document.getElementById('trim');
+  const saveBtn = document.getElementById('save'), statusEl = document.getElementById('status');
+  const previewEl = document.getElementById('preview'), metaEl = document.getElementById('meta');
+  const typedArea = document.getElementById('typed-area'), drawArea = document.getElementById('draw-area');
+  const typedName = document.getElementById('typed-name'), fontGrid = document.getElementById('font-grid');
+  const FONTS = ['Mrs Saint Delafield','Herr Von Muellerhoff','Great Vibes','Allura'];
+
+  let mode = 'draw', color = '#0b1a3a', strokes = [], cur = null, font = FONTS[0];
+  let cssW = 0, cssH = 0, lastBlob = null;
+
+  // ---------- drawing ----------
+  function resize(){
+    const r = pad.getBoundingClientRect(), dpr = window.devicePixelRatio || 1;
+    if (!r.width || !r.height) return;
+    const oldW = cssW || r.width, oldH = cssH || r.height;
+    if (cssW) { // rescale stored points so the drawing survives a resize
+      const sx = r.width/oldW, sy = r.height/oldH;
+      strokes.forEach(s => s.pts.forEach(p => { p.x*=sx; p.y*=sy; }));
+    }
+    cssW = r.width; cssH = r.height;
+    pad.width = Math.round(cssW*dpr); pad.height = Math.round(cssH*dpr);
+    ctx.setTransform(dpr,0,0,dpr,0,0);
+    redraw();
+  }
+
+  function drawStroke(c, s, scale){
+    const p = s.pts; if (!p.length) return;
+    c.strokeStyle = c.fillStyle = s.color; c.lineCap = 'round'; c.lineJoin = 'round';
+    if (p.length === 1){ c.beginPath(); c.arc(p[0].x*scale,p[0].y*scale,p[0].w*scale/2,0,Math.PI*2); c.fill(); return; }
+    for (let i=1;i<p.length;i++){
+      const a = p[i-1], b = p[i], prev = p[i-2] || a;
+      const m1 = {x:(prev.x+a.x)/2, y:(prev.y+a.y)/2}, m2 = {x:(a.x+b.x)/2, y:(a.y+b.y)/2};
+      c.lineWidth = ((a.w+b.w)/2)*scale;
+      c.beginPath(); c.moveTo(m1.x*scale,m1.y*scale); c.quadraticCurveTo(a.x*scale,a.y*scale,m2.x*scale,m2.y*scale); c.stroke();
+    }
+    const L = p[p.length-1], M = p[p.length-2];
+    c.lineWidth = L.w*scale; c.beginPath(); c.moveTo(((M.x+L.x)/2)*scale,((M.y+L.y)/2)*scale); c.lineTo(L.x*scale,L.y*scale); c.stroke();
+  }
+  function redraw(){
+    ctx.clearRect(0,0,cssW,cssH);
+    strokes.forEach(s => drawStroke(ctx,s,1));
+    hint.style.opacity = strokes.length ? 0 : 1;
+  }
+  function pt(e){
+    const r = pad.getBoundingClientRect();
+    return {x:e.clientX-r.left, y:e.clientY-r.top, t:performance.now()};
+  }
+  function widthFor(p, last, pressure){
+    const base = +thick.value;
+    if (pressure && pressure !== 0.5) return base*(0.45+pressure*1.1);
+    if (!last) return base;
+    const v = Math.hypot(p.x-last.x,p.y-last.y)/Math.max(1,p.t-last.t); // px per ms
+    const w = base*Math.max(0.45, Math.min(1.35, 1.35 - v*0.35));
+    return last.w*0.7 + w*0.3;
+  }
+  pad.addEventListener('pointerdown', e => {
+    if (mode!=='draw') return;
+    pad.setPointerCapture(e.pointerId);
+    const p = pt(e); p.w = widthFor(p,null,e.pressure);
+    cur = {color, pts:[p]}; strokes.push(cur); redraw();
+  });
+  pad.addEventListener('pointermove', e => {
+    if (!cur) return;
+    const evs = e.getCoalescedEvents ? e.getCoalescedEvents() : [e];
+    for (const ev of evs){
+      const last = cur.pts[cur.pts.length-1], p = pt(ev);
+      if (Math.hypot(p.x-last.x,p.y-last.y) < 1.2) continue;
+      p.w = widthFor(p,last,ev.pressure); cur.pts.push(p);
+    }
+    redraw();
+  });
+  const end = () => { if (cur){ cur = null; schedulePreview(); } };
+  pad.addEventListener('pointerup', end); pad.addEventListener('pointercancel', end);
+
+  // ---------- typed ----------
+  FONTS.forEach(f => {
+    const b = document.createElement('button');
+    b.className = 'font-opt'; b.style.fontFamily = `"${f}", cursive`;
+    b.setAttribute('aria-pressed', f===font); b.dataset.font = f;
+    b.addEventListener('click', () => { font = f; fontGrid.querySelectorAll('.font-opt').forEach(x=>x.setAttribute('aria-pressed', x.dataset.font===f)); schedulePreview(); });
+    fontGrid.appendChild(b);
+  });
+  function syncTypedLabels(){ const t = typedName.value.trim() || 'Nama Anda'; fontGrid.querySelectorAll('.font-opt').forEach(b=>b.textContent=t); }
+  typedName.addEventListener('input', () => { syncTypedLabels(); schedulePreview(); });
+  syncTypedLabels();
+
+  // ---------- controls ----------
+  document.querySelectorAll('.swatch').forEach(s => s.addEventListener('click', () => {
+    color = s.dataset.color;
+    document.querySelectorAll('.swatch').forEach(x=>x.setAttribute('aria-pressed', x===s));
+    if (mode==='draw'){ strokes.forEach(st => st.color = color); redraw(); }
+    schedulePreview();
+  }));
+  document.getElementById('undo').addEventListener('click', () => { strokes.pop(); redraw(); schedulePreview(); });
+  document.getElementById('clear').addEventListener('click', () => {
+    if (mode==='draw'){ strokes = []; redraw(); } else { typedName.value=''; syncTypedLabels(); }
+    schedulePreview();
+  });
+  trimBox.addEventListener('change', schedulePreview);
+  thick.addEventListener('change', schedulePreview);
+
+  function setMode(m){
+    mode = m;
+    document.getElementById('tab-draw').setAttribute('aria-selected', m==='draw');
+    document.getElementById('tab-type').setAttribute('aria-selected', m==='type');
+    drawArea.hidden = m!=='draw'; typedArea.hidden = m!=='type';
+    document.getElementById('undo').hidden = m!=='draw';
+    document.getElementById('thick-group').hidden = m!=='draw';
+    if (m==='draw') requestAnimationFrame(resize);
+    schedulePreview();
+  }
+  document.getElementById('tab-draw').addEventListener('click', ()=>setMode('draw'));
+  document.getElementById('tab-type').addEventListener('click', ()=>setMode('type'));
+
+  // ---------- export ----------
+  const SCALE = 4, PADDING = 24; // export at 4× the on-screen size
+  async function render(){
+    let src, w, h;
+    if (mode==='draw'){
+      if (!strokes.length) return null;
+      w = Math.round(cssW*SCALE); h = Math.round(cssH*SCALE);
+      src = document.createElement('canvas'); src.width=w; src.height=h;
+      const c = src.getContext('2d'); strokes.forEach(s => drawStroke(c,s,SCALE));
+    } else {
+      const text = typedName.value.trim(); if (!text) return null;
+      try { await document.fonts.load(`160px "${font}"`, text); } catch(e){}
+      const fs = 200; src = document.createElement('canvas');
+      const m = src.getContext('2d'); m.font = `${fs}px "${font}", cursive`;
+      w = Math.ceil(m.measureText(text).width + fs*1.2); h = Math.ceil(fs*2);
+      src.width = w; src.height = h;
+      const c = src.getContext('2d'); c.font = `${fs}px "${font}", cursive`;
+      c.fillStyle = color; c.textBaseline = 'alphabetic'; c.fillText(text, fs*0.6, h*0.62);
+    }
+    // bounds of ink
+    let bx=0, by=0, bw=w, bh=h;
+    if (trimBox.checked){
+      const d = src.getContext('2d').getImageData(0,0,w,h).data;
+      let x0=w, y0=h, x1=-1, y1=-1;
+      for (let y=0;y<h;y++) for (let x=0;x<w;x++) if (d[(y*w+x)*4+3] > 8){ if(x<x0)x0=x; if(x>x1)x1=x; if(y<y0)y0=y; if(y>y1)y1=y; }
+      if (x1<0) return null;
+      const pd = PADDING*SCALE/2;
+      bx = Math.max(0,x0-pd); by = Math.max(0,y0-pd); bw = Math.min(w,x1+pd)-bx; bh = Math.min(h,y1+pd)-by;
+    }
+    const out = document.createElement('canvas'); out.width = bw; out.height = bh;
+    const o = out.getContext('2d'); o.fillStyle = '#ffffff'; o.fillRect(0,0,bw,bh);
+    o.drawImage(src, bx,by,bw,bh, 0,0,bw,bh);
+    return new Promise(res => out.toBlob(b => res({blob:b, w:bw, h:bh}), 'image/jpeg', 0.95));
+  }
+
+  let timer = null, previewURL = null;
+  function schedulePreview(){ clearTimeout(timer); timer = setTimeout(updatePreview, 120); }
+  async function updatePreview(){
+    const r = await render();
+    if (previewURL){ URL.revokeObjectURL(previewURL); previewURL = null; }
+    statusEl.textContent = ''; statusEl.className = 'status';
+    if (!r){ lastBlob = null; previewEl.innerHTML = '<span class="empty">Pratinjau muncul di sini</span>'; metaEl.textContent=''; saveBtn.disabled = true; return; }
+    lastBlob = r.blob; previewURL = URL.createObjectURL(r.blob);
+    previewEl.innerHTML = ''; const img = new Image(); img.src = previewURL; img.alt = 'Pratinjau tanda tangan'; previewEl.appendChild(img);
+    metaEl.textContent = `${r.w} × ${r.h} px · ${(r.blob.size/1024).toFixed(0)} KB · JPG`;
+    saveBtn.disabled = !downloads;
+    if (!downloads) statusEl.textContent = 'Unduhan tidak tersedia di tampilan ini.';
+  }
+
+  const downloads = true;
+
+  saveBtn.addEventListener('click', () => {
+    if (!lastBlob) return;
+    const base = mode==='type' && typedName.value.trim() ? typedName.value.trim().replace(/[^\w\- ]+/g,'').replace(/\s+/g,'-') : 'tanda-tangan';
+    const url = URL.createObjectURL(lastBlob);
+    const a = document.createElement('a');
+    a.href = url; a.download = `ttd-${base}.jpg`;
+    document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 2000);
+    statusEl.textContent = 'Tersimpan.'; statusEl.className = 'status ok';
+  });
+
+  new ResizeObserver(() => { if (mode==='draw') resize(); }).observe(drawArea);
+  resize();
+  document.fonts && document.fonts.ready.then(syncTypedLabels);
+})();
+</script>
+</body>
+</html>
